@@ -321,6 +321,23 @@ handle_set_ip4_config (NMDBusFortisslvpnPpp *object,
 }
 
 static gboolean
+is_otp_hint (const gchar *hint)
+{
+	GMatchInfo *matchInfo;
+	GRegex *regex;
+	GError *error = NULL;
+
+	regex = g_regex_new ("^.*_.*_.*_otp$|^otp$|^.*_.*_.*_2fa", 0, 0, &error);
+	if (error) {
+		_LOGE("Failed to compile regexp: %s", error->message);
+		g_free(error);
+		return FALSE;
+	}
+	g_regex_match (regex, hint, 0, &matchInfo);
+	return g_match_info_matches (matchInfo);
+ }
+
+static gboolean
 handle_get_pin (NMDBusFortisslvpnPpp *object,
                 GDBusMethodInvocation *invocation,
                 const gchar *arg_title,
@@ -343,12 +360,12 @@ handle_get_pin (NMDBusFortisslvpnPpp *object,
 		return TRUE;
 	}
 
-	if (strcmp (arg_hint, NM_FORTISSLVPN_KEY_OTP) == 0) {
+	if (is_otp_hint(arg_hint)) {
 		NMSettingSecretFlags flags = NM_SETTING_SECRET_FLAG_NONE;
 		NMSetting *s_vpn = nm_connection_get_setting (priv->connection, NM_TYPE_SETTING_VPN);
 
 		g_return_val_if_fail (NM_IS_SETTING_VPN (s_vpn), FALSE);
-		nm_setting_get_secret_flags (s_vpn, arg_hint, &flags, NULL);
+		nm_setting_get_secret_flags (s_vpn, NM_FORTISSLVPN_KEY_OTP, &flags, NULL);
 		if ((flags & NM_SETTING_SECRET_FLAG_NOT_SAVED) == 0) {
 			g_dbus_method_invocation_return_error (invocation,
 			                                       NMV_EDITOR_PLUGIN_ERROR,
@@ -356,6 +373,7 @@ handle_get_pin (NMDBusFortisslvpnPpp *object,
 			                                       "Secret '%s' is not configured as required", arg_hint);
 			return TRUE;
 		}
+		hints[0] = NM_FORTISSLVPN_KEY_OTP;
 	} else if (strcmp (arg_hint, NM_FORTISSLVPN_KEY_PASSWORD) != 0) {
 		/* nm_fortisslvpn_properties_validate_secrets()() is not tolerant
 		 * towards unknown secrets. Don't make NetworkManager add one. */
@@ -556,7 +574,8 @@ real_new_secrets (NMVpnServicePlugin *plugin, NMConnection *connection, GError *
 		                                               "Forgotten the secrets hint?");
 		goto out;
 	}
-
+	if (is_otp_hint(hint))
+		hint = NM_FORTISSLVPN_KEY_OTP;
 	pin = nm_setting_vpn_get_secret (s_vpn, hint);
 	if (!pin) {
 		g_dbus_method_invocation_return_error (priv->get_pin_invocation,
