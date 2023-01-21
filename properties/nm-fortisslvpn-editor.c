@@ -179,12 +179,12 @@ advanced_dialog_response_cb (GtkWidget *dialog, gint response, gpointer user_dat
 		priv->realm = g_strdup (gtk_editable_get_text (realm_entry));
 		priv->no_ftm_push = gtk_switch_get_active (no_ftm_push);
 
-		stuff_changed_cb (NULL, self);
-
 		if (gtk_switch_get_active (use_otp))
 			priv->otp_flags |= NM_SETTING_SECRET_FLAG_NOT_SAVED;
 		else
 			priv->otp_flags &= ~NM_SETTING_SECRET_FLAG_NOT_SAVED;
+
+		stuff_changed_cb (NULL, self);
 	} else {
 		gtk_editable_set_text (trusted_cert_entry, priv->trusted_cert);
 		gtk_editable_set_text (realm_entry, priv->realm);
