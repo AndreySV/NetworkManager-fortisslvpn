@@ -103,6 +103,7 @@ _LOGD_enabled (void)
 #define _LOGD(...) _NMLOG(LOG_INFO,    __VA_ARGS__)
 #define _LOGI(...) _NMLOG(LOG_NOTICE,  __VA_ARGS__)
 #define _LOGW(...) _NMLOG(LOG_WARNING, __VA_ARGS__)
+#define _LOGE(...) _NMLOG(LOG_ERR,     __VA_ARGS__)
 
 /*****************************************************************************/
 
@@ -442,7 +443,7 @@ real_connect (NMVpnServicePlugin *plugin, NMConnection *connection, GError **err
 	NMSettingVpn *s_vpn;
 	mode_t old_umask;
 	gchar *config;
-	const char *username, *password, *realm, *otp;
+	const char *username, *password, *realm, *otp, *no_ftm_push;
 
 	g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -460,6 +461,8 @@ real_connect (NMVpnServicePlugin *plugin, NMConnection *connection, GError **err
 
 	realm = nm_setting_vpn_get_data_item (s_vpn, NM_FORTISSLVPN_KEY_REALM);
 
+	no_ftm_push = nm_setting_vpn_get_data_item (s_vpn, NM_FORTISSLVPN_KEY_NO_FTM_PUSH);
+
 	g_clear_object (&priv->connection);
 	priv->connection = g_object_ref (connection);
 
@@ -475,11 +478,13 @@ real_connect (NMVpnServicePlugin *plugin, NMConnection *connection, GError **err
 	config = g_strdup_printf ("username = %s\n"
 	                          "password = %s"
 	                          "%s%s"
-	                          "%s%s\n",
+				  "%s%s"
+	                          "%s%d\n",
 	                          username ? username : "",
 	                          password ? password : "",
 	                          realm ? "\nrealm = " : "", realm ? realm : "",
-	                          otp ? "\notp = " : "", otp ? otp : "");
+				  otp ? "\notp = " : "", otp ? otp : "",
+				  no_ftm_push ? "\nno-ftm-push = " : "",  !g_strcmp0(no_ftm_push, "yes"));
 	old_umask = umask (0077);
 	if (!g_file_set_contents (priv->config_file, config, -1, error)) {
 		g_clear_pointer (&priv->config_file, g_free);

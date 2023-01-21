@@ -42,6 +42,7 @@ static const ValidProperty valid_properties[] = {
 	{ NM_FORTISSLVPN_KEY_REALM,             G_TYPE_STRING, FALSE },
 	{ NM_FORTISSLVPN_KEY_PASSWORD"-flags",  G_TYPE_UINT,   FALSE },
 	{ NM_FORTISSLVPN_KEY_OTP"-flags",       G_TYPE_UINT,   FALSE },
+	{ NM_FORTISSLVPN_KEY_NO_FTM_PUSH,       G_TYPE_BOOLEAN,FALSE },
 	{ NULL }
 };
 

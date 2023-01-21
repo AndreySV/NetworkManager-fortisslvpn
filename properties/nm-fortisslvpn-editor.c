@@ -58,6 +58,7 @@ typedef struct {
 	gchar *trusted_cert;
 	gchar *realm;
 	NMSettingSecretFlags otp_flags;
+	gboolean no_ftm_push;
 } FortisslvpnEditorPrivate;
 
 static void fortisslvpn_editor_interface_init (NMVpnEditorInterface *iface_class);
@@ -164,6 +165,7 @@ advanced_dialog_response_cb (GtkWidget *dialog, gint response, gpointer user_dat
 	GtkEditable *trusted_cert_entry = GTK_EDITABLE (gtk_builder_get_object (priv->builder, "trusted_cert_entry"));
 	GtkEditable *realm_entry = GTK_EDITABLE (gtk_builder_get_object (priv->builder, "realm_entry"));
 	GtkSwitch *use_otp = GTK_SWITCH (gtk_builder_get_object (priv->builder, "use_otp"));
+	GtkSwitch *no_ftm_push = GTK_SWITCH (gtk_builder_get_object (priv->builder, "no_ftm_push"));
 
 	g_return_if_fail (trusted_cert_entry);
 	g_return_if_fail (realm_entry);
@@ -175,6 +177,8 @@ advanced_dialog_response_cb (GtkWidget *dialog, gint response, gpointer user_dat
 		g_free (priv->trusted_cert);
 		priv->trusted_cert = g_strdup (gtk_editable_get_text (trusted_cert_entry));
 		priv->realm = g_strdup (gtk_editable_get_text (realm_entry));
+		priv->no_ftm_push = gtk_switch_get_active (no_ftm_push);
+
 		stuff_changed_cb (NULL, self);
 
 		if (gtk_switch_get_active (use_otp))
@@ -186,6 +190,7 @@ advanced_dialog_response_cb (GtkWidget *dialog, gint response, gpointer user_dat
 		gtk_editable_set_text (realm_entry, priv->realm);
 		gtk_switch_set_active (use_otp,
 		                       priv->otp_flags & NM_SETTING_SECRET_FLAG_NOT_SAVED);
+		gtk_switch_set_active (no_ftm_push, priv->no_ftm_push);
 	}
 }
 
@@ -274,6 +279,16 @@ init_editor_plugin (FortisslvpnEditor *self, NMConnection *connection, GError **
 		                             NULL);
 		gtk_switch_set_active (GTK_SWITCH (widget),
 		                       priv->otp_flags & NM_SETTING_SECRET_FLAG_NOT_SAVED);
+	}
+
+	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "no_ftm_push"));
+	g_return_val_if_fail (widget, FALSE);
+
+	if (s_vpn) {
+		value = nm_setting_vpn_get_data_item (s_vpn,
+						      NM_FORTISSLVPN_KEY_NO_FTM_PUSH);
+		priv->no_ftm_push = !g_strcmp0(value, "yes");
+		gtk_switch_set_active (GTK_SWITCH (widget), priv->no_ftm_push);
 	}
 
 	widget = GTK_WIDGET (gtk_builder_get_object (priv->builder, "show_passwords_checkbutton"));
@@ -426,6 +441,11 @@ update_connection (NMVpnEditor *iface,
 
 	/* Use OTP */
 	nm_setting_set_secret_flags (NM_SETTING (s_vpn), NM_FORTISSLVPN_KEY_OTP, priv->otp_flags, NULL);
+
+	/* No FTM push */
+	nm_setting_vpn_add_data_item (s_vpn,
+				      NM_FORTISSLVPN_KEY_NO_FTM_PUSH,
+				      priv->no_ftm_push ? "yes" : "no");
 
 	if (!nm_fortisslvpn_properties_validate (s_vpn, error))
 		return FALSE;
